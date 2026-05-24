@@ -5,13 +5,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-# ---------------- DATABASE CONNECTION ---------------- #
+# ---------------- DATABASE ---------------- #
 
-conn = sqlite3.connect(
-    "database.db",
-    check_same_thread=False
-)
-
+conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
 # ---------------- PAGE CONFIG ---------------- #
@@ -30,272 +26,155 @@ if (
     or not st.session_state.logged_in
     or st.session_state.role != "Instructor"
 ):
-    st.error(
-        "Access Denied. Please login as Instructor from the main app."
-    )
+    st.error("Access Denied. Please login again.")
     st.stop()
 
-# ---------------- LOAD DATASET ---------------- #
+# ---------------- LOAD DATA ---------------- #
 
 df = pd.read_csv(
     "D:/StudentPerformanceDashboard/data/student_performance.csv"
 )
 
-# Remove extra spaces from column names
-
 df.columns = df.columns.str.strip()
 
-# ---------------- ADD ROLL NUMBER ---------------- #
-
-df.insert(
-    0,
-    "Roll No",
-    range(1, len(df) + 1)
-)
+df.insert(0, "Roll No", range(1, len(df) + 1))
 
 # ---------------- GET SUBJECT FROM LOGIN ---------------- #
 
-subject_name = (
-    st.session_state.username.capitalize()
+subject_input = st.session_state.username.strip().lower()
+
+# ---------------- MATCH SUBJECT SAFELY ---------------- #
+
+matched_subject = None
+
+for col in df.columns:
+    if col.lower() == subject_input:
+        matched_subject = col
+        break
+
+if not matched_subject:
+    st.error(
+        f"Subject '{subject_input}' not found in dataset."
+    )
+    st.write("Available subjects:", df.columns.tolist())
+    st.stop()
+
+subject_name = matched_subject
+
+# ---------------- LOG VIEW ---------------- #
+
+cursor.execute(
+    """
+    INSERT INTO teacher_logs (subject, action, login_time)
+    VALUES (?, ?, datetime('now','localtime'))
+    """,
+    (subject_name, "Viewed Subject Dashboard")
 )
 
-# ---------------- SUBJECT VALIDATION ---------------- #
+conn.commit()
 
-if subject_name in df.columns:
+# ---------------- SUBJECT HEADER ---------------- #
 
-    # ---------------- LOG INSTRUCTOR ACTIVITY ---------------- #
+st.subheader(f"📚 Subject: {subject_name}")
 
-    cursor.execute(
-        """
-        INSERT INTO teacher_logs
-        (subject, action)
-        VALUES (?, ?)
-        """,
-        (
-            subject_name,
-            "Viewed Subject Dashboard"
+# ---------------- MARKS TABLE ---------------- #
+
+st.subheader("📋 Marks Table")
+
+subject_marks = df[["Roll No", "Name", subject_name]]
+
+st.dataframe(subject_marks)
+
+# ---------------- HISTOGRAM ---------------- #
+
+st.subheader("📊 Distribution")
+
+fig1, ax1 = plt.subplots()
+
+sns.histplot(df[subject_name], kde=True, ax=ax1)
+
+st.pyplot(fig1)
+
+# ---------------- BOXPLOT ---------------- #
+
+st.subheader("📦 Boxplot")
+
+fig2, ax2 = plt.subplots()
+
+sns.boxplot(y=df[subject_name], ax=ax2)
+
+st.pyplot(fig2)
+
+# ---------------- TOP 10 ---------------- #
+
+st.subheader("🏆 Top 10 Students")
+
+top10 = df.sort_values(
+    by=subject_name,
+    ascending=False
+).head(10)
+
+fig3, ax3 = plt.subplots()
+
+bars = ax3.barh(top10["Name"], top10[subject_name])
+
+ax3.invert_yaxis()
+
+for i, bar in enumerate(bars):
+    ax3.text(
+        bar.get_width() + 1,
+        bar.get_y() + bar.get_height() / 2,
+        f"{top10[subject_name].iloc[i]:.1f}",
+        va="center"
+    )
+
+st.pyplot(fig3)
+
+# ---------------- SAVE CHART ---------------- #
+
+os.makedirs("charts", exist_ok=True)
+
+chart_path = f"charts/top10_{subject_name}.png"
+
+fig3.savefig(chart_path, bbox_inches="tight")
+
+# ---------------- DOWNLOAD ---------------- #
+
+st.subheader("⬇ Download Chart")
+
+with open(chart_path, "rb") as file:
+    if st.download_button(
+        "Download Top 10 Chart",
+        file,
+        file_name=f"top10_{subject_name}.png",
+        mime="image/png"
+    ):
+        cursor.execute(
+            """
+            INSERT INTO teacher_logs (subject, action, login_time)
+            VALUES (?, ?, datetime('now','localtime'))
+            """,
+            (subject_name, "Downloaded Chart")
         )
-    )
+        conn.commit()
 
-    conn.commit()
+        st.success("Downloaded Successfully!")
 
-    # ---------------- SUBJECT HEADER ---------------- #
-
-    st.subheader(
-        f"📚 {subject_name} Subject Analysis"
-    )
-
-    # ---------------- SUBJECT MARKS TABLE ---------------- #
-
-    st.subheader(
-        f"📋 Marks for {subject_name}"
-    )
-
-    subject_marks = df[
-        [
-            "Roll No",
-            "Name",
-            subject_name
-        ]
-    ].reset_index(drop=True)
-
-    st.dataframe(subject_marks)
-
-    # ---------------- HISTOGRAM ---------------- #
-
-    st.subheader(
-        f"📊 Distribution of "
-        f"{subject_name} Marks"
-    )
-
-    fig1, ax1 = plt.subplots(
-        figsize=(8, 4)
-    )
-
-    sns.histplot(
-        df[subject_name],
-        bins=10,
-        kde=True,
-        color="skyblue",
-        ax=ax1
-    )
-
-    ax1.set_xlabel("Marks")
-
-    ax1.set_ylabel(
-        "Number of Students"
-    )
-
-    ax1.set_title(
-        f"{subject_name} "
-        f"Marks Distribution"
-    )
-
-    st.pyplot(fig1)
-
-    # ---------------- BOXPLOT ---------------- #
-
-    st.subheader(
-        f"📦 Boxplot for "
-        f"{subject_name}"
-    )
-
-    fig2, ax2 = plt.subplots(
-        figsize=(6, 4)
-    )
-
-    sns.boxplot(
-        y=df[subject_name],
-        color="lightgreen",
-        ax=ax2
-    )
-
-    ax2.set_title(
-        f"{subject_name} "
-        f"Score Spread"
-    )
-
-    st.pyplot(fig2)
-
-    # ---------------- TOP 10 STUDENTS ---------------- #
-
-    st.subheader(
-        f"🏆 Top 10 Students in "
-        f"{subject_name}"
-    )
-
-    top_students = (
-        df.sort_values(
-            by=subject_name,
-            ascending=False
-        )[
-            [
-                "Roll No",
-                "Name",
-                subject_name
-            ]
-        ]
-        .head(10)
-        .reset_index(drop=True)
-    )
-
-    fig3, ax3 = plt.subplots(
-        figsize=(10, 6)
-    )
-
-    bars = ax3.barh(
-        top_students["Name"],
-        top_students[subject_name]
-    )
-
-    ax3.invert_yaxis()
-
-    ax3.set_xlabel("Marks")
-
-    ax3.set_title(
-        f"Top 10 Performers in "
-        f"{subject_name}"
-    )
-
-    # ---------------- LABELS ---------------- #
-
-    for i, bar in enumerate(bars):
-
-        ax3.text(
-            bar.get_width() + 1,
-            bar.get_y()
-            + bar.get_height() / 2,
-            f"{top_students[subject_name][i]:.1f}",
-            va="center"
-        )
-
-    st.pyplot(fig3)
-
-    # ---------------- SAVE CHART ---------------- #
-
-    os.makedirs(
-        "charts",
-        exist_ok=True
-    )
-
-    chart_path = (
-        f"charts/top10_{subject_name}.png"
-    )
-
-    fig3.savefig(
-        chart_path,
-        bbox_inches="tight"
-    )
-
-    # ---------------- DOWNLOAD BUTTON ---------------- #
-
-    st.subheader(
-        "⬇ Download Top 10 Chart"
-    )
-
-    with open(chart_path, "rb") as file:
-
-        if st.download_button(
-            label="Download Chart",
-            data=file,
-            file_name=(
-                f"top10_{subject_name}.png"
-            ),
-            mime="image/png"
-        ):
-
-            # ---------------- LOG DOWNLOAD ACTION ---------------- #
-
-            cursor.execute(
-                """
-                INSERT INTO teacher_logs
-                (subject, action)
-                VALUES (?, ?)
-                """,
-                (
-                    subject_name,
-                    "Downloaded Top 10 Chart"
-                )
-            )
-
-            conn.commit()
-
-            st.success(
-                "Chart Downloaded Successfully!"
-            )
-
-# ---------------- SUBJECT NOT FOUND ---------------- #
-
-else:
-
-    st.error(
-        f"{subject_name} subject "
-        f"not found in dataset."
-    )
-
-# ---------------- LOGOUT BUTTON ---------------- #
+# ---------------- LOGOUT ---------------- #
 
 st.divider()
 
 if st.button("🚪 Logout"):
 
-    # ---------------- LOG LOGOUT ---------------- #
-
     cursor.execute(
         """
-        INSERT INTO teacher_logs
-        (subject, action)
-        VALUES (?, ?)
+        INSERT INTO teacher_logs (subject, action, login_time)
+        VALUES (?, ?, datetime('now','localtime'))
         """,
-        (
-            subject_name,
-            "Logged Out"
-        )
+        (subject_name, "Logged Out")
     )
 
     conn.commit()
-
-    # ---------------- CLEAR SESSION ---------------- #
 
     st.session_state.logged_in = False
     st.session_state.username = None
