@@ -1,5 +1,8 @@
 # 🎓 Student Performance Dashboard
 
+## 🔗 Live Demo
+https://student-performance-dashboard-q7abyfajjaz7lqtkxrhqhz.streamlit.app/
+
 ## 📌 Project Overview
 A role-based web application that analyzes student academic performance using interactive dashboards. Built using Python and Streamlit with data visualization and real-time logging features.
 
