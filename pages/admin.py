@@ -51,7 +51,7 @@ conn.commit()
 # ---------------- LOAD DATA ---------------- #
 
 df = pd.read_csv(
-    "D:/StudentPerformanceDashboard/data/student_performance.csv"
+    "data/student_performance.csv"
 )
 
 df.columns = df.columns.str.strip()
