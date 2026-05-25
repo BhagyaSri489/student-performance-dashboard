@@ -63,31 +63,31 @@ This project simulates a real-world academic management system with **Admin, Ins
 ## 📸 Screenshots
 
 ### 🏠 Application Home / Login
-![Home](screenshots/app.png)
+![Home](./screenshots/app.png)
 
 ---
 
 ### 🎓 Student Login
-![Student Login](screenshots/student_login.png)
+![Student Login](./screenshots/student_login.png)
 
 ### 📊 Student Dashboard
-![Student Dashboard](screenshots/stu_dashboard1.png)
+![Student Dashboard](./screenshots/stu_dashboard1.png)
 
 ---
 
 ### 👨‍🏫 Instructor Dashboard
-![Instructor Dashboard](screenshots/instructor_db1.png)
+![Instructor Dashboard](./screenshots/instructor_db1.png)
 
 ---
 
 ### 🛠 Admin Dashboard Overview
-![Admin Dashboard](screenshots/admin_db_view.png)
+![Admin Dashboard](./screenshots/admin_db_view.png)
 
 ### 🔍 Admin Data Filtering
-![Admin Filter](screenshots/admin_data_filter.png)
+![Admin Filter](./screenshots/admin_data_filter.png)
 
 ### 📜 System Logs (Student Activity)
-![Admin Logs](screenshots/admin_studentlogs.png)
+![Admin Logs](./screenshots/admin_studentlogs.png)
 
 
 ## ⚙️ Setup Instructions
