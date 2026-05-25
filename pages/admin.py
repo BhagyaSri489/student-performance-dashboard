@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 import io
+import subprocess
 
 # ---------------- DATABASE CONNECTION ---------------- #
 
@@ -176,48 +177,72 @@ if menu == "📊 Analytics Dashboard":
         conn.commit()
 
 # ===================================================== #
-#                    SYSTEM LOGS (FIXED)
+#                    SYSTEM LOGS
 # ===================================================== #
 
 elif menu == "📜 System Logs":
 
     st.subheader("📜 System Logs (Live)")
 
-    # 🔄 REFRESH BUTTON
-    if st.button("🔄 Refresh Logs"):
+    # ---------------- LOG CONTROLS ---------------- #
+
+    st.markdown("### 🧹 Log Management")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    # 🔄 Refresh logs
+    with col1:
+        if st.button("🔄 Refresh Logs"):
+            st.rerun()
+
+    # 🗑 Student logs
+    with col2:
+        if st.button("🗑 Student Logs"):
+            subprocess.run(["python", "reset_logs.py", "student"])
+            st.success("Student logs deleted!")
+            st.rerun()
+
+    # 🗑 Instructor logs
+    with col3:
+        if st.button("🗑 Instructor Logs"):
+            subprocess.run(["python", "reset_logs.py", "teacher"])
+            st.success("Instructor logs deleted!")
+            st.rerun()
+
+    # 🗑 Admin logs
+    with col4:
+        if st.button("🗑 Admin Logs"):
+            subprocess.run(["python", "reset_logs.py", "admin"])
+            st.success("Admin logs deleted!")
+            st.rerun()
+
+    # 🧨 DELETE ALL LOGS
+    if st.button("🧨 Delete ALL Logs"):
+        subprocess.run(["python", "reset_logs.py", "all"])
+        st.success("All logs deleted!")
         st.rerun()
 
-    # ---------------- STUDENT LOGS ---------------- #
+    # ---------------- TABLES ---------------- #
 
     st.markdown("### 📘 Student Logs")
-
     student_logs = pd.read_sql_query(
         "SELECT * FROM student_logs ORDER BY login_time DESC",
         conn
     )
-
     st.dataframe(student_logs, use_container_width=True)
 
-    # ---------------- INSTRUCTOR LOGS ---------------- #
-
     st.markdown("### 📚 Instructor Logs")
-
     teacher_logs = pd.read_sql_query(
         "SELECT * FROM teacher_logs ORDER BY login_time DESC",
         conn
     )
-
     st.dataframe(teacher_logs, use_container_width=True)
 
-    # ---------------- ADMIN LOGS ---------------- #
-
     st.markdown("### 🛠 Admin Logs")
-
     admin_logs = pd.read_sql_query(
         "SELECT * FROM admin_logs ORDER BY login_time DESC",
         conn
     )
-
     st.dataframe(admin_logs, use_container_width=True)
 
 # ---------------- LOGOUT ---------------- #

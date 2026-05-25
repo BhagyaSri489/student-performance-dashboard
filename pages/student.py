@@ -15,13 +15,9 @@ st.set_page_config(
 
 st.title("🎓 Student Dashboard")
 
-# ---------------- DATABASE CONNECTION ---------------- #
+# ---------------- DATABASE ---------------- #
 
-conn = sqlite3.connect(
-    "database.db",
-    check_same_thread=False
-)
-
+conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
 # ---------------- ACCESS CONTROL ---------------- #
@@ -42,8 +38,6 @@ df = pd.read_csv(
 
 df.columns = df.columns.str.strip()
 
-# ---------------- GET STUDENT ---------------- #
-
 student_name = st.session_state.username
 
 student_data = df[
@@ -54,23 +48,27 @@ if student_data.empty:
     st.error("Student not found in dataset.")
     st.stop()
 
-# ---------------- LOG VIEW DASHBOARD ---------------- #
+# ---------------- ONE-TIME LOGIN LOG (FIXED) ---------------- #
 
-cursor.execute(
-    """
-    INSERT INTO student_logs (student_name, action, login_time)
-    VALUES (?, ?, datetime('now','localtime'))
-    """,
-    (student_name, "Viewed Dashboard")
-)
+if "student_logged" not in st.session_state:
 
-conn.commit()
+    cursor.execute(
+        """
+        INSERT INTO student_logs (student_name, action, login_time)
+        VALUES (?, ?, datetime('now','localtime'))
+        """,
+        (student_name, "Viewed Dashboard")
+    )
+
+    conn.commit()
+
+    st.session_state.student_logged = True
 
 # ---------------- WELCOME ---------------- #
 
 st.success(f"Welcome {student_name}")
 
-# ---------------- ROLL NO ---------------- #
+# ---------------- ROLL NUMBER ---------------- #
 
 df.insert(0, "Roll No", range(1, len(df) + 1))
 
@@ -81,12 +79,12 @@ numeric_subjects = [
     if col not in ["Roll No", "Attendance (%)"]
 ]
 
-# ---------------- DETAILS ---------------- #
+# ---------------- STUDENT DETAILS ---------------- #
 
 st.subheader("📋 Student Details")
 st.dataframe(student_data)
 
-# ---------------- MARKS CHART ---------------- #
+# ---------------- MARKS ---------------- #
 
 st.subheader("📊 Subject Marks")
 
@@ -191,11 +189,12 @@ with open(chart_path, "rb") as file:
             """,
             (student_name, "Downloaded Pie Chart")
         )
+
         conn.commit()
 
-        st.success("Downloaded Successfully!")
+        st.success("Chart Downloaded Successfully!")
 
-# ---------------- LOGOUT ---------------- #
+# ---------------- LOGOUT (FIXED SESSION RESET) ---------------- #
 
 st.divider()
 
@@ -211,9 +210,8 @@ if st.button("🚪 Logout"):
 
     conn.commit()
 
-    st.session_state.logged_in = False
-    st.session_state.username = None
-    st.session_state.role = None
-    st.session_state.page = "home"
+    # reset session safely
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
 
     st.switch_page("app.py")

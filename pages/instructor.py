@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-# ---------------- DATABASE ---------------- #
+# ---------------- DATABASE CONNECTION ---------------- #
 
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -26,7 +26,7 @@ if (
     or not st.session_state.logged_in
     or st.session_state.role != "Instructor"
 ):
-    st.error("Access Denied. Please login again.")
+    st.error("Access Denied. Please login as Instructor from main app.")
     st.stop()
 
 # ---------------- LOAD DATA ---------------- #
@@ -39,59 +39,41 @@ df.columns = df.columns.str.strip()
 
 df.insert(0, "Roll No", range(1, len(df) + 1))
 
-# ---------------- GET SUBJECT FROM LOGIN ---------------- #
+subject_name = st.session_state.username.capitalize()
 
-subject_input = st.session_state.username.strip().lower()
+# ---------------- SUBJECT CHECK ---------------- #
 
-# ---------------- MATCH SUBJECT SAFELY ---------------- #
-
-matched_subject = None
-
-for col in df.columns:
-    if col.lower() == subject_input:
-        matched_subject = col
-        break
-
-if not matched_subject:
-    st.error(
-        f"Subject '{subject_input}' not found in dataset."
-    )
-    st.write("Available subjects:", df.columns.tolist())
+if subject_name not in df.columns:
+    st.error(f"{subject_name} subject not found in dataset.")
     st.stop()
 
-subject_name = matched_subject
+# ---------------- ONE-TIME LOG (FIXED) ---------------- #
 
-# ---------------- LOG VIEW ---------------- #
+if "instructor_logged" not in st.session_state:
 
-cursor.execute(
-    """
-    INSERT INTO teacher_logs (subject, action, login_time)
-    VALUES (?, ?, datetime('now','localtime'))
-    """,
-    (subject_name, "Viewed Subject Dashboard")
-)
+    cursor.execute("""
+        INSERT INTO teacher_logs (subject, action, login_time)
+        VALUES (?, ?, datetime('now','localtime'))
+    """, (subject_name, "Viewed Subject Dashboard"))
 
-conn.commit()
+    conn.commit()
+
+    st.session_state.instructor_logged = True
 
 # ---------------- SUBJECT HEADER ---------------- #
 
-st.subheader(f"📚 Subject: {subject_name}")
-
-# ---------------- MARKS TABLE ---------------- #
-
-st.subheader("📋 Marks Table")
+st.subheader(f"📚 {subject_name} Analysis")
 
 subject_marks = df[["Roll No", "Name", subject_name]]
-
 st.dataframe(subject_marks)
 
 # ---------------- HISTOGRAM ---------------- #
 
 st.subheader("📊 Distribution")
 
-fig1, ax1 = plt.subplots()
+fig1, ax1 = plt.subplots(figsize=(8, 4))
 
-sns.histplot(df[subject_name], kde=True, ax=ax1)
+sns.histplot(df[subject_name], bins=10, kde=True, ax=ax1)
 
 st.pyplot(fig1)
 
@@ -99,7 +81,7 @@ st.pyplot(fig1)
 
 st.subheader("📦 Boxplot")
 
-fig2, ax2 = plt.subplots()
+fig2, ax2 = plt.subplots(figsize=(6, 4))
 
 sns.boxplot(y=df[subject_name], ax=ax2)
 
@@ -109,22 +91,18 @@ st.pyplot(fig2)
 
 st.subheader("🏆 Top 10 Students")
 
-top10 = df.sort_values(
-    by=subject_name,
-    ascending=False
-).head(10)
+top_students = df.sort_values(by=subject_name, ascending=False).head(10)
 
-fig3, ax3 = plt.subplots()
+fig3, ax3 = plt.subplots(figsize=(10, 6))
 
-bars = ax3.barh(top10["Name"], top10[subject_name])
-
+bars = ax3.barh(top_students["Name"], top_students[subject_name])
 ax3.invert_yaxis()
 
 for i, bar in enumerate(bars):
     ax3.text(
         bar.get_width() + 1,
-        bar.get_y() + bar.get_height() / 2,
-        f"{top10[subject_name].iloc[i]:.1f}",
+        bar.get_y() + bar.get_height()/2,
+        f"{top_students[subject_name].iloc[i]:.1f}",
         va="center"
     )
 
@@ -135,7 +113,6 @@ st.pyplot(fig3)
 os.makedirs("charts", exist_ok=True)
 
 chart_path = f"charts/top10_{subject_name}.png"
-
 fig3.savefig(chart_path, bbox_inches="tight")
 
 # ---------------- DOWNLOAD ---------------- #
@@ -143,19 +120,18 @@ fig3.savefig(chart_path, bbox_inches="tight")
 st.subheader("⬇ Download Chart")
 
 with open(chart_path, "rb") as file:
+
     if st.download_button(
-        "Download Top 10 Chart",
-        file,
+        label="Download Chart",
+        data=file,
         file_name=f"top10_{subject_name}.png",
         mime="image/png"
     ):
-        cursor.execute(
-            """
+        cursor.execute("""
             INSERT INTO teacher_logs (subject, action, login_time)
             VALUES (?, ?, datetime('now','localtime'))
-            """,
-            (subject_name, "Downloaded Chart")
-        )
+        """, (subject_name, "Downloaded Top 10 Chart"))
+
         conn.commit()
 
         st.success("Downloaded Successfully!")
@@ -166,19 +142,14 @@ st.divider()
 
 if st.button("🚪 Logout"):
 
-    cursor.execute(
-        """
+    cursor.execute("""
         INSERT INTO teacher_logs (subject, action, login_time)
         VALUES (?, ?, datetime('now','localtime'))
-        """,
-        (subject_name, "Logged Out")
-    )
+    """, (subject_name, "Logged Out"))
 
     conn.commit()
 
-    st.session_state.logged_in = False
-    st.session_state.username = None
-    st.session_state.role = None
-    st.session_state.page = "home"
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
 
     st.switch_page("app.py")
